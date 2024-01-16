@@ -1,2 +1,2 @@
-# Project4.0_Models
-Models that will be used for incident detection, movement detection and people count detection
+# Project4.0
+Script to get keypoints and detect falls of person
