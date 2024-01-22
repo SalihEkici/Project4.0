@@ -35,7 +35,10 @@ mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
-cap = cv2.VideoCapture("fall_5.mp4")
+cap = cv2.VideoCapture(0)
+
+fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # You can also use 'XVID' for AVI
+out = cv2.VideoWriter("output.mp4", fourcc, 20.0, (1920, 1080))
 
 fps_start_time = time.time()
 fps_frame_count = 0
@@ -49,14 +52,16 @@ while cap.isOpened():
     # resize the frame for portrait video
     frame = cv2.resize(frame, (1920, 1080))
 
+    if _:
+        out.write(frame)
+
     # convert to RGB
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     # process the frame for pose detection
     pose_results = pose.process(frame_rgb)
 
-    try: 
-
+    try:
         # draw skeleton on the frame
         mp_drawing.draw_landmarks(
             frame, pose_results.pose_landmarks, mp_pose.POSE_CONNECTIONS
@@ -157,7 +162,7 @@ while cap.isOpened():
             prev_timestamp,
             current_timestamp,
         )
-    
+
     except:
         pass
 
@@ -168,18 +173,18 @@ while cap.isOpened():
         status = "!FALL DETECTED - ALERT SEND!"
     if status == "!FALL DETECTED - ALERT SEND!" and y_nose < threshold_height:
         status = "RECOVERED FROM FALL"
-    
+
     if -100 < current_x_velocity < 100:
         current_x_velocity = 0
     if current_x_velocity != 0 and x_average_position != previous_x_hip:
-            movement_counter += 1
+        movement_counter += 1
 
-    if y_nose == previous_y_nose and current_y_velocity != 0: # adjust sensitivity
+    if y_nose == previous_y_nose and current_y_velocity != 0:  # adjust sensitivity
         status = "!OCCLUDED FALL DETECTED!"
 
     if status == "!OCCLUDED FALL DETECTED!" and y_nose != previous_y_nose:
         status = "RECOVERED FROM OCCLUDED FALL"
-    
+
     fps_frame_count += 1
     if time.time() - fps_start_time >= 1:
         fps = fps_frame_count / (time.time() - fps_start_time)
@@ -239,12 +244,15 @@ while cap.isOpened():
     )
 
     cv2.imshow("Output", frame)
+    out.write(frame)
     print(current_y_velocity)
     previous_y_nose = y_nose
     previous_x_hip = x_average_position
     previous_timestamp = current_timestamp
     previous_frame_counter = frame_counter
     frame_counter += 1
+
+    # Write the frame to the video file
 
     if cv2.waitKey(1) == ord("q"):
         break
