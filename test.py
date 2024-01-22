@@ -24,12 +24,25 @@ current_timestamp = None
 previous_y_nose = 1
 previous_x_hip = 1
 
+# global variables - buffer feed
+buffer_amount = 450
+buffer_array = []
+
+fall_detected = False
+
+
+def createVideo(array, videout):
+    for array_frame in array:
+        videout.write(array_frame)
+
+
 threshold_height = 800
 threshold_line = "------------------------------------------------------------------------------------------------"
 previous_timestamp = time.time()
 status = "EVERYTHING OK"
 movement_counter = 0
 frame_counter = 0
+
 # initialize pose estimator
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
@@ -52,8 +65,28 @@ while cap.isOpened():
     # resize the frame for portrait video
     frame = cv2.resize(frame, (1920, 1080))
 
-    if _:
-        out.write(frame)
+    # video feed behaviour
+
+    if fall_detected:
+        buffer_amount = 1000
+        if len(buffer_array) >= buffer_amount:
+            createVideo(buffer_array, out)
+            buffer_array = []
+            buffer_amount = 450
+            fall_detected = False
+        else:
+            buffer_array.append(frame)
+
+    else:
+        if len(buffer_array) >= buffer_amount:
+            buffer_array.pop(0)
+            buffer_array.append(frame)
+        else:
+            buffer_array.append(frame)
+
+    # if 450 < len(buffer_array) < 1000:
+    #     buffer_array = []
+    #     buffer_amount = 450
 
     # convert to RGB
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -171,8 +204,12 @@ while cap.isOpened():
         current_y_velocity = 0
     if y_nose > threshold_height and current_y_velocity > 1000:
         status = "!FALL DETECTED - ALERT SEND!"
+        fall_detected = True
     if status == "!FALL DETECTED - ALERT SEND!" and y_nose < threshold_height:
         status = "RECOVERED FROM FALL"
+        fall_detected = False
+        buffer_array = []
+        buffer_amount = 450
 
     if -100 < current_x_velocity < 100:
         current_x_velocity = 0
@@ -202,20 +239,20 @@ while cap.isOpened():
         5,
     )
 
-    # cv2.putText(
-    #     frame,
-    #     f"{current_y_velocity}",
-    #     (20, 200),
-    #     cv2.FONT_HERSHEY_SIMPLEX,
-    #     2,
-    #     (255, 255, 255),
-    #     5,
-    # )
+    cv2.putText(
+        frame,
+        f"FPS: {len(buffer_array)}",
+        (20, 200),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        2,
+        (255, 255, 255),
+        5,
+    )
 
     cv2.putText(
         frame,
         f"FPS: {math.floor(fps)}",
-        (20, 200),
+        (20, 300),
         cv2.FONT_HERSHEY_SIMPLEX,
         2,
         (0, 255, 0),
@@ -225,7 +262,7 @@ while cap.isOpened():
     cv2.putText(
         frame,
         f"Time moving: {math.floor(movement_counter / 30)} s",
-        (20, 300),
+        (20, 400),
         cv2.FONT_HERSHEY_SIMPLEX,
         2,
         (0, 0, 255),
@@ -244,7 +281,6 @@ while cap.isOpened():
     )
 
     cv2.imshow("Output", frame)
-    out.write(frame)
     print(current_y_velocity)
     previous_y_nose = y_nose
     previous_x_hip = x_average_position
@@ -257,5 +293,6 @@ while cap.isOpened():
     if cv2.waitKey(1) == ord("q"):
         break
 
+out.release()
 cap.release()
 cv2.destroyAllWindows()
