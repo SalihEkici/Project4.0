@@ -5,6 +5,9 @@ import time
 from datetime import datetime
 import numpy as np
 import json
+from azure.storage.blob import BlobClient, generate_blob_sas, BlobSasPermissions
+from dotenv import load_dotenv
+import os
 
 # global variables - positions
 x_nose = 0
@@ -32,12 +35,33 @@ buffer_array = []
 
 fall_detected = False
 
+load_dotenv()
+#everything about azure
+account_name = os.getenv("AZURE_STORAGE_ACCOUNT")
+account_key = os.getenv("ACCOUNT_KEY")
+blob_name = os.getenv("AZURE_STORAGE_BLOB")
+container_name = os.getenv("AZURE_STORAGE_CONTAINER")
+
+
+blob_client = BlobClient(account_url=f"https://{account_name}.blob.core.windows.net", container_name=container_name, blob_name=blob_name, credential=account_key)
+
+sas_token = generate_blob_sas(
+    account_name=account_name,
+    account_key=account_key,
+    container_name=container_name,
+    blob_name=blob_name,
+    permission=BlobSasPermissions(write=True),
+    expiry=999
+)
 
 def createVideo(array, videout):
     videout = cv2.VideoWriter(f"{videoTitle}.mp4", fourcc, 20.0, (1920, 1080))
     for array_frame in array:
         videout.write(array_frame)
-
+    
+def sendVideo():
+    with open(f"{videoTitle}.mp4", "rb") as data:
+        blob_client.upload_blob(data, blob_type="BlockBlob")
 
 threshold_height = 800
 threshold_line = "------------------------------------------------------------------------------------------------"
@@ -81,6 +105,7 @@ while cap.isOpened():
         buffer_amount = 200
         if len(buffer_array) >= buffer_amount:
             createVideo(buffer_array, out)
+            sendVideo()
             buffer_array = []
             buffer_amount = 100
             fall_detected = False
