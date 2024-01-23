@@ -9,7 +9,12 @@ from azure.storage.blob import BlobClient, generate_blob_sas, BlobSasPermissions
 from dotenv import load_dotenv
 import os
 
-# global variables - positions
+# === USER SETTINGS === 
+patient_name = "bob"
+camera_id = 1
+
+# === GLOBAL VARIABLES === #
+# keypoint positions
 x_nose = 0
 y_nose = 0
 x_left_shoulder = 0
@@ -20,92 +25,118 @@ x_left_hip = 0
 y_left_hip = 0
 x_right_hip = 0
 y_right_hip = 0
-current_x_velocity = 0
-current_y_velocity = 0
-x_average_position = 0
-current_timestamp = None
 
-# global variables - previous positions
 previous_y_nose = 1
 previous_x_hip = 1
+x_average_position = 0
 
-# global variables - buffer feed
+# velocity
+current_x_velocity = 0
+current_y_velocity = 0
+
+# timestamps
+current_timestamp = None
+previous_timestamp = time.time()
+
+# video feed
 buffer_amount = 100
 buffer_array = []
+videoTitle = ""
 
+# other
 fall_detected = False
-
-load_dotenv()
-#everything about azure
-account_name = os.getenv("AZURE_STORAGE_ACCOUNT")
-account_key = os.getenv("ACCOUNT_KEY")
-blob_name = os.getenv("AZURE_STORAGE_BLOB")
-container_name = os.getenv("AZURE_STORAGE_CONTAINER")
-
-
-blob_client = BlobClient(account_url=f"https://{account_name}.blob.core.windows.net", container_name=container_name, blob_name=blob_name, credential=account_key)
-
-sas_token = generate_blob_sas(
-    account_name=account_name,
-    account_key=account_key,
-    container_name=container_name,
-    blob_name=blob_name,
-    permission=BlobSasPermissions(write=True),
-    expiry=999
-)
-
-def createVideo(array, videout):
-    videout = cv2.VideoWriter(f"{videoTitle}.mp4", fourcc, 20.0, (1920, 1080))
-    for array_frame in array:
-        videout.write(array_frame)
-    
-def sendVideo():
-    with open(f"{videoTitle}.mp4", "rb") as data:
-        blob_client.upload_blob(data, blob_type="BlockBlob")
-
 threshold_height = 800
 threshold_line = "------------------------------------------------------------------------------------------------"
-previous_timestamp = time.time()
 status = "EVERYTHING OK"
 movement_counter = 0
 frame_counter = 0
 data_json = None
 
-# initialize pose estimator
+load_dotenv()
+
+# === FUNCTIONS === #
+
+# create video
+def createVideo(array):
+    out = cv2.VideoWriter(f"{videoTitle}", fourcc, 20.0, (1920, 1080))
+    for array_frame in array:
+        out.write(array_frame)
+
+# send video
+account_name = os.getenv("AZURE_STORAGE_ACCOUNT")
+account_key = os.getenv("ACCOUNT_KEY")
+container_name = os.getenv("AZURE_STORAGE_CONTAINER")
+
+def sendVideo(videoTitle):
+    constructJsonAlert(1, current_timestamp, videoTitle)
+    blob_name = f"{videoTitle}"
+    blob_client = BlobClient(
+        account_url=f"https://{account_name}.blob.core.windows.net",
+        container_name=container_name,
+        blob_name=blob_name,
+        credential=account_key,
+    )
+    generate_blob_sas(
+        account_name=account_name,
+        account_key=account_key,
+        container_name=container_name,
+        blob_name=blob_name,
+        permission=BlobSasPermissions(write=True),
+        expiry=999,
+    )
+    with open(f"{videoTitle}", "rb") as data:
+        blob_client.upload_blob(data, blob_type="BlockBlob")
+
+# construct alert
+def constructJsonAlert(cameraId, triggerTime, videoTitle):
+    return json.dumps(
+        {
+            "cameraId": cameraId,
+            "triggerTime": triggerTime,
+            "videoUrl": f"https://sateamelderguardians.blob.core.windows.net/blobelderguardians/{videoTitle}",
+        }
+    )
+
+#send alert
+def sendAlert():
+    pass
+
+# construct movement
+def constructMovement():
+    pass
+
+# send movement
+def sendMovement(cameraId, totalMovement):
+    return json.dumps(
+        {
+            "date": cameraId,
+            "totalMovement": totalMovement,
+        }
+    )
+
+# === PROGRAM === #
+
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
 cap = cv2.VideoCapture(0)
-fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # You can also use 'XVID' for AVI
+fourcc = cv2.VideoWriter_fourcc(*"mp4v")
 out = None
 
 fps_start_time = time.time()
 fps_frame_count = 0
 fps = 1
 
-
-# send alert
-def sendAlert(cameraId, triggerTime, videoTitle):
-    return json.dumps(
-        {"cameraId": cameraId, "triggerTime": triggerTime, "videoUrl": f"link/to/url/{videoTitle}.mp4"}
-    )
-
-
 while cap.isOpened():
-    # read frame
     _, frame = cap.read()
-    # cv2.waitKey(15)
-
-    # resize the frame for portrait video
     frame = cv2.resize(frame, (1920, 1080))
 
-    # video feed behaviour
     if fall_detected:
         buffer_amount = 200
         if len(buffer_array) >= buffer_amount:
-            createVideo(buffer_array, out)
-            sendVideo()
+            createVideo(buffer_array)
+            sendVideo(videoTitle)
             buffer_array = []
             buffer_amount = 100
             fall_detected = False
@@ -119,23 +150,14 @@ while cap.isOpened():
         else:
             buffer_array.append(frame)
 
-    # if 450 < len(buffer_array) < 1000:
-    #     buffer_array = []
-    #     buffer_amount = 450
-
-    # convert to RGB
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-    # process the frame for pose detection
     pose_results = pose.process(frame_rgb)
 
     try:
-        # draw skeleton on the frame
         mp_drawing.draw_landmarks(
             frame, pose_results.pose_landmarks, mp_pose.POSE_CONNECTIONS
         )
 
-        # get coordinates from desired keypoints
         image_height, image_width, _ = frame.shape
         x_nose = (
             pose_results.pose_landmarks.landmark[mp_pose.PoseLandmark.NOSE].x
@@ -178,30 +200,26 @@ while cap.isOpened():
             * image_height
         )
 
-        # calculation for the variable threshold y (0,0 is top left)
         y_center_top = (y_left_shoulder + y_right_shoulder) / 2
         y_center_bottom = (y_left_hip + y_right_hip) / 2
         average_height = y_center_bottom - y_center_top
         distanceToLaptop = -(math.log(968) - math.log(average_height)) / -0.314
         threshold_height = 800 - (20 * distanceToLaptop - 20)
 
-        # calculation for the variable center x (0,0 is top left)
         x_center_top = (x_left_shoulder + x_right_shoulder) / 2
         x_center_bottom = (x_left_hip + x_right_hip) / 2
         x_average_position = (x_center_top + x_center_bottom) / 2
 
-        # velocity of a keypoint -> nose
         def calculate_instantaneous_velocity(
             previous_position, current_position, previous_time, current_time
         ):
             delta_position = current_position - previous_position
             delta_time = current_time - previous_time
 
-            # Check for division by zero to avoid errors
             if delta_time == 0:
                 return np.zeros_like(
                     delta_position
-                )  # Return zero velocity if no time has passed
+                )
             velocity = delta_position / delta_time
             return velocity
 
@@ -234,17 +252,17 @@ while cap.isOpened():
     except:
         pass
 
-    # modify status when an incident occurs - addition 'recovered from fall'
+    # monitor status
     if -200 < current_y_velocity < 200:
         current_y_velocity = 0
     if y_nose > threshold_height and current_y_velocity > 1000:
         status = "!FALL DETECTED - ALERT SEND!"
         fall_detected = True
-        datetime_object = datetime.fromtimestamp(math.floor(current_timestamp)).strftime('%Y%m%d-%H%M%S')
-        videoTitle = (
-            f"{datetime_object}"
-        )
-        data_json = sendAlert(1, datetime_object, videoTitle)
+        datetime_object = datetime.fromtimestamp(
+            math.floor(current_timestamp)
+        ).strftime("%Y%m%d-%H%M%S")
+        videoTitle = f"{patient_name}-{camera_id}-{datetime_object}.mp4"
+        data_json = constructJsonAlert(camera_id, datetime_object, videoTitle)
     if status == "!FALL DETECTED - ALERT SEND!" and y_nose < threshold_height:
         status = "RECOVERED FROM FALL"
         fall_detected = False
@@ -262,6 +280,7 @@ while cap.isOpened():
     if status == "!OCCLUDED FALL DETECTED!" and y_nose != previous_y_nose:
         status = "RECOVERED FROM OCCLUDED FALL"
 
+    # calculate fps (use for correcting movement tracking count)
     fps_frame_count += 1
     if time.time() - fps_start_time >= 1:
         fps = fps_frame_count / (time.time() - fps_start_time)
@@ -279,9 +298,10 @@ while cap.isOpened():
         5,
     )
 
+    # show length of buffer array
     cv2.putText(
         frame,
-        f"FPS: {len(buffer_array)}",
+        f"BufLen: {len(buffer_array)}",
         (20, 200),
         cv2.FONT_HERSHEY_SIMPLEX,
         2,
@@ -289,6 +309,7 @@ while cap.isOpened():
         5,
     )
 
+    # show fps
     cv2.putText(
         frame,
         f"FPS: {math.floor(fps)}",
@@ -299,6 +320,7 @@ while cap.isOpened():
         5,
     )
 
+    # movement time in sec
     cv2.putText(
         frame,
         f"Time moving: {math.floor(movement_counter / 30)} s",
@@ -320,19 +342,19 @@ while cap.isOpened():
         2,
     )
 
+    # output frame to show video
     cv2.imshow("Output", frame)
-    print(current_y_velocity)
+
+    # update previous variables
     previous_y_nose = y_nose
     previous_x_hip = x_average_position
     previous_timestamp = current_timestamp
     previous_frame_counter = frame_counter
     frame_counter += 1
 
-    # Write the frame to the video file
-
+    # cancel program on q pressed
     if cv2.waitKey(1) == ord("q"):
         break
 
-out.release()
 cap.release()
 cv2.destroyAllWindows()
