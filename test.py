@@ -2,7 +2,9 @@ import cv2
 import mediapipe as mp
 import math
 import time
+from datetime import datetime
 import numpy as np
+import json
 
 # global variables - positions
 x_nose = 0
@@ -25,13 +27,14 @@ previous_y_nose = 1
 previous_x_hip = 1
 
 # global variables - buffer feed
-buffer_amount = 450
+buffer_amount = 100
 buffer_array = []
 
 fall_detected = False
 
 
 def createVideo(array, videout):
+    videout = cv2.VideoWriter(f"{videoTitle}.mp4", fourcc, 20.0, (1920, 1080))
     for array_frame in array:
         videout.write(array_frame)
 
@@ -42,6 +45,7 @@ previous_timestamp = time.time()
 status = "EVERYTHING OK"
 movement_counter = 0
 frame_counter = 0
+data_json = None
 
 # initialize pose estimator
 mp_drawing = mp.solutions.drawing_utils
@@ -49,13 +53,20 @@ mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
 cap = cv2.VideoCapture(0)
-
 fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # You can also use 'XVID' for AVI
-out = cv2.VideoWriter("output.mp4", fourcc, 20.0, (1920, 1080))
+out = None
 
 fps_start_time = time.time()
 fps_frame_count = 0
 fps = 1
+
+
+# send alert
+def sendAlert(cameraId, triggerTime, videoTitle):
+    return json.dumps(
+        {"cameraId": cameraId, "triggerTime": triggerTime, "videoUrl": f"link/to/url/{videoTitle}.mp4"}
+    )
+
 
 while cap.isOpened():
     # read frame
@@ -66,13 +77,12 @@ while cap.isOpened():
     frame = cv2.resize(frame, (1920, 1080))
 
     # video feed behaviour
-
     if fall_detected:
-        buffer_amount = 1000
+        buffer_amount = 200
         if len(buffer_array) >= buffer_amount:
             createVideo(buffer_array, out)
             buffer_array = []
-            buffer_amount = 450
+            buffer_amount = 100
             fall_detected = False
         else:
             buffer_array.append(frame)
@@ -205,11 +215,16 @@ while cap.isOpened():
     if y_nose > threshold_height and current_y_velocity > 1000:
         status = "!FALL DETECTED - ALERT SEND!"
         fall_detected = True
+        datetime_object = datetime.fromtimestamp(math.floor(current_timestamp)).strftime('%Y%m%d-%H%M%S')
+        videoTitle = (
+            f"{datetime_object}"
+        )
+        data_json = sendAlert(1, datetime_object, videoTitle)
     if status == "!FALL DETECTED - ALERT SEND!" and y_nose < threshold_height:
         status = "RECOVERED FROM FALL"
         fall_detected = False
         buffer_array = []
-        buffer_amount = 450
+        buffer_amount = 100
 
     if -100 < current_x_velocity < 100:
         current_x_velocity = 0
@@ -231,10 +246,10 @@ while cap.isOpened():
     # show status in top left corner
     cv2.putText(
         frame,
-        f"{status}",
+        f"{data_json}",
         (20, 100),
         cv2.FONT_HERSHEY_SIMPLEX,
-        2,
+        1,
         (255, 255, 255),
         5,
     )
