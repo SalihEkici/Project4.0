@@ -2,3 +2,4 @@ opencv-python
 mediapipe
 numpy
 azure-storage-blob
+python-dotenv

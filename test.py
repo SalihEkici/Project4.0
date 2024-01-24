@@ -12,6 +12,7 @@ import os
 # === USER SETTINGS === 
 patient_name = "bob"
 camera_id = 1
+user_id = 1
 
 # === GLOBAL VARIABLES === #
 # keypoint positions
@@ -68,7 +69,7 @@ account_key = os.getenv("ACCOUNT_KEY")
 container_name = os.getenv("AZURE_STORAGE_CONTAINER")
 
 def sendVideo(videoTitle):
-    constructJsonAlert(1, current_timestamp, videoTitle)
+    constructJsonAlert(camera_id, current_timestamp, videoTitle)
     blob_name = f"{videoTitle}"
     blob_client = BlobClient(
         account_url=f"https://{account_name}.blob.core.windows.net",
@@ -102,17 +103,18 @@ def sendAlert():
     pass
 
 # construct movement
-def constructMovement():
-    pass
-
-# send movement
-def sendMovement(cameraId, totalMovement):
+def constructMovement(cameraId, totalMovement, userId):
     return json.dumps(
         {
             "date": cameraId,
             "totalMovement": totalMovement,
+            "used_id": userId
         }
     )
+
+# send movement
+def sendMovement():
+    pass
 
 # === PROGRAM === #
 
@@ -136,7 +138,7 @@ while cap.isOpened():
         buffer_amount = 200
         if len(buffer_array) >= buffer_amount:
             createVideo(buffer_array)
-            sendVideo(videoTitle)
+            #sendVideo(videoTitle)
             buffer_array = []
             buffer_amount = 100
             fall_detected = False
