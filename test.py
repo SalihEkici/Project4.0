@@ -8,6 +8,7 @@ import json
 from azure.storage.blob import BlobClient, generate_blob_sas, BlobSasPermissions
 from dotenv import load_dotenv
 import os
+import requests
 
 # === USER SETTINGS === 
 patient_name = "bob"
@@ -69,7 +70,6 @@ account_key = os.getenv("ACCOUNT_KEY")
 container_name = os.getenv("AZURE_STORAGE_CONTAINER")
 
 def sendVideo(videoTitle):
-    constructJsonAlert(camera_id, current_timestamp, videoTitle)
     blob_name = f"{videoTitle}"
     blob_client = BlobClient(
         account_url=f"https://{account_name}.blob.core.windows.net",
@@ -94,13 +94,29 @@ def constructJsonAlert(cameraId, triggerTime, videoTitle):
         {
             "cameraId": cameraId,
             "triggerTime": triggerTime,
-            "videoUrl": f"https://sateamelderguardians.blob.core.windows.net/blobelderguardians/{videoTitle}",
+            "videoData": f"https://sateamelderguardians.blob.core.windows.net/blobelderguardians/{videoTitle}",
+            "isManual": False
+
+            
         }
     )
 
 #send alert
 def sendAlert():
-    pass
+    data_json = constructJsonAlert(camera_id, current_timestamp, videoTitle)
+    try:
+        backend_url = "https://elderguardiansbackend.azurewebsites.net/api/alerts"  # Replace with your actual Java backend URL
+        headers = {"Content-Type": "application/json"}
+
+        response = requests.post(backend_url, data=data_json, headers=headers)
+
+        if response.status_code == 200:
+            print("Alert sent successfully")
+        else:
+            print(f"Failed to send alert. HTTP Status Code: {response.status_code}")
+    except Exception as e:
+        print(f"Error sending alert: {e}")
+
 
 # construct movement
 def constructMovement(cameraId, totalMovement, userId):
@@ -138,7 +154,8 @@ while cap.isOpened():
         buffer_amount = 200
         if len(buffer_array) >= buffer_amount:
             createVideo(buffer_array)
-            #sendVideo(videoTitle)
+            sendVideo(videoTitle)
+            sendAlert()
             buffer_array = []
             buffer_amount = 100
             fall_detected = False
