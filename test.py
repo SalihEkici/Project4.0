@@ -71,12 +71,12 @@ fps_start_time = time.time()
 fps_frame_count = 0
 fps = 1
 
+load_dotenv()
+
 account_name = os.getenv("AZURE_STORAGE_ACCOUNT")
 account_key = os.getenv("ACCOUNT_KEY")
 container_name = os.getenv("AZURE_STORAGE_CONTAINER")
 connection_string = os.getenv("CONNECTION_STRING")
-
-load_dotenv()
 
 # === FUNCTIONS === #
 
@@ -95,6 +95,7 @@ def sendVideo(videoTitle):
     with open(f"{videoTitle}", "rb") as data:
         content_settings = ContentSettings(content_type="video/mp4")
         blob_client.upload_blob(data, content_settings=content_settings)
+
 
 # send alert
 def sendAlert(cameraId, triggerTime, videoData):
@@ -115,6 +116,7 @@ def sendAlert(cameraId, triggerTime, videoData):
 
     # Make the POST request
     requests.post(url, data=json_data, headers=headers)
+
 
 # send movement
 def sendMovement(cameraId, triggerTime):
@@ -301,9 +303,35 @@ while cap.isOpened():
 
     if y_nose == previous_y_nose and current_y_velocity != 0:  # adjust sensitivity
         status = "!OCCLUDED FALL DETECTED!"
+        fall_detected = True
+        current_datetime = datetime.fromtimestamp(
+            math.floor(current_timestamp)
+        ).strftime("%Y%m%d%H%M%S")
+        datetime_object = datetime.strptime(current_datetime, "%Y%m%d%H%M%S")
+        formatted_datetime = [
+            datetime_object.year,
+            datetime_object.month,
+            datetime_object.day,
+            datetime_object.hour,
+            datetime_object.minute,
+            datetime_object.second,
+            datetime_object.microsecond // 1000,  # Convert microsecond to millisecond
+        ]
+        videoTitle = f"{patient_name}_{camera_id}_{current_datetime}.mp4"
+
+        sendAlert(
+            camera_id,
+            formatted_datetime,
+            videoTitle,
+        )
+
+        sendMovement(camera_id, formatted_datetime)
 
     if status == "!OCCLUDED FALL DETECTED!" and y_nose != previous_y_nose:
         status = "RECOVERED FROM OCCLUDED FALL"
+        fall_detected = False
+        buffer_array = []
+        buffer_amount = 100 
 
     # calculate fps (use for correcting movement tracking count)
     fps_frame_count += 1
