@@ -5,12 +5,15 @@ import time
 from datetime import datetime
 import numpy as np
 import json
-from azure.storage.blob import BlobClient, generate_blob_sas, BlobSasPermissions
+from azure.storage.blob import (
+    ContentSettings,
+    BlobServiceClient,
+)
 from dotenv import load_dotenv
 import os
 import requests
 
-# === USER SETTINGS === 
+# === USER SETTINGS ===
 patient_name = "bob"
 camera_id = 1
 user_id = 1
@@ -44,6 +47,7 @@ previous_timestamp = time.time()
 buffer_amount = 100
 buffer_array = []
 videoTitle = ""
+formatted_datetime = []
 
 # other
 fall_detected = False
@@ -52,11 +56,30 @@ threshold_line = "--------------------------------------------------------------
 status = "EVERYTHING OK"
 movement_counter = 0
 frame_counter = 0
-data_json = None
+alert_json = None
+movement_json = None
+
+mp_drawing = mp.solutions.drawing_utils
+mp_pose = mp.solutions.pose
+pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+
+cap = cv2.VideoCapture(0)
+fourcc = cv2.VideoWriter_fourcc(*"H264")
+out = None
+
+fps_start_time = time.time()
+fps_frame_count = 0
+fps = 1
+
+account_name = os.getenv("AZURE_STORAGE_ACCOUNT")
+account_key = os.getenv("ACCOUNT_KEY")
+container_name = os.getenv("AZURE_STORAGE_CONTAINER")
+connection_string = os.getenv("CONNECTION_STRING")
 
 load_dotenv()
 
 # === FUNCTIONS === #
+
 
 # create video
 def createVideo(array):
@@ -64,88 +87,56 @@ def createVideo(array):
     for array_frame in array:
         out.write(array_frame)
 
+
 # send video
-account_name = os.getenv("AZURE_STORAGE_ACCOUNT")
-account_key = os.getenv("ACCOUNT_KEY")
-container_name = os.getenv("AZURE_STORAGE_CONTAINER")
-
 def sendVideo(videoTitle):
-    blob_name = f"{videoTitle}"
-    blob_client = BlobClient(
-        account_url=f"https://{account_name}.blob.core.windows.net",
-        container_name=container_name,
-        blob_name=blob_name,
-        credential=account_key,
-    )
-    generate_blob_sas(
-        account_name=account_name,
-        account_key=account_key,
-        container_name=container_name,
-        blob_name=blob_name,
-        permission=BlobSasPermissions(write=True),
-        expiry=999,
-    )
+    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+    blob_client = blob_service_client.get_blob_client(container_name, videoTitle)
     with open(f"{videoTitle}", "rb") as data:
-        blob_client.upload_blob(data, blob_type="BlockBlob")
+        content_settings = ContentSettings(content_type="video/mp4")
+        blob_client.upload_blob(data, content_settings=content_settings)
 
-# construct alert
-def constructJsonAlert(cameraId, triggerTime, videoTitle):
-    return json.dumps(
-        {
-            "cameraId": cameraId,
-            "triggerTime": triggerTime,
-            "videoData": f"https://sateamelderguardians.blob.core.windows.net/blobelderguardians/{videoTitle}",
-            "isManual": False
+# send alert
+def sendAlert(cameraId, triggerTime, videoData):
+    url = "https://elderguardiansbackend.azurewebsites.net/api/alerts"
 
-            
-        }
-    )
+    # JSON data to be sent in the POST request
+    data = {
+        "cameraId": cameraId,
+        "triggerTime": triggerTime,
+        "videoData": f"https://sateamelderguardians.blob.core.windows.net/blobelderguardians/{videoData}",
+    }
 
-#send alert
-def sendAlert():
-    data_json = constructJsonAlert(camera_id, current_timestamp, videoTitle)
-    try:
-        backend_url = "https://elderguardiansbackend.azurewebsites.net/api/alerts"  # Replace with your actual Java backend URL
-        headers = {"Content-Type": "application/json"}
+    # Convert the data dictionary to a JSON string
+    json_data = json.dumps(data)
 
-        response = requests.post(backend_url, data=data_json, headers=headers)
+    # Set the headers to indicate that we are sending JSON
+    headers = {"Content-Type": "application/json"}
 
-        if response.status_code == 200:
-            print("Alert sent successfully")
-        else:
-            print(f"Failed to send alert. HTTP Status Code: {response.status_code}")
-    except Exception as e:
-        print(f"Error sending alert: {e}")
-
-
-# construct movement
-def constructMovement(cameraId, totalMovement, userId):
-    return json.dumps(
-        {
-            "date": cameraId,
-            "totalMovement": totalMovement,
-            "used_id": userId
-        }
-    )
+    # Make the POST request
+    requests.post(url, data=json_data, headers=headers)
 
 # send movement
-def sendMovement():
-    pass
+def sendMovement(cameraId, triggerTime):
+    url = "https://elderguardiansbackend.azurewebsites.net/api/movements"
+
+    # JSON data to be sent in the POST request
+    data = {
+        "cameraId": cameraId,
+        "trackedTime": triggerTime,
+    }
+
+    # Convert the data dictionary to a JSON string
+    json_data = json.dumps(data)
+
+    # Set the headers to indicate that we are sending JSON
+    headers = {"Content-Type": "application/json"}
+
+    # Make the POST request
+    requests.post(url, data=json_data, headers=headers)
+
 
 # === PROGRAM === #
-
-mp_drawing = mp.solutions.drawing_utils
-mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
-
-cap = cv2.VideoCapture(0)
-fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-out = None
-
-fps_start_time = time.time()
-fps_frame_count = 0
-fps = 1
-
 while cap.isOpened():
     _, frame = cap.read()
     frame = cv2.resize(frame, (1920, 1080))
@@ -155,7 +146,6 @@ while cap.isOpened():
         if len(buffer_array) >= buffer_amount:
             createVideo(buffer_array)
             sendVideo(videoTitle)
-            sendAlert()
             buffer_array = []
             buffer_amount = 100
             fall_detected = False
@@ -236,9 +226,7 @@ while cap.isOpened():
             delta_time = current_time - previous_time
 
             if delta_time == 0:
-                return np.zeros_like(
-                    delta_position
-                )
+                return np.zeros_like(delta_position)
             velocity = delta_position / delta_time
             return velocity
 
@@ -277,11 +265,29 @@ while cap.isOpened():
     if y_nose > threshold_height and current_y_velocity > 1000:
         status = "!FALL DETECTED - ALERT SEND!"
         fall_detected = True
-        datetime_object = datetime.fromtimestamp(
+        current_datetime = datetime.fromtimestamp(
             math.floor(current_timestamp)
-        ).strftime("%Y%m%d-%H%M%S")
-        videoTitle = f"{patient_name}-{camera_id}-{datetime_object}.mp4"
-        data_json = constructJsonAlert(camera_id, datetime_object, videoTitle)
+        ).strftime("%Y%m%d%H%M%S")
+        datetime_object = datetime.strptime(current_datetime, "%Y%m%d%H%M%S")
+        formatted_datetime = [
+            datetime_object.year,
+            datetime_object.month,
+            datetime_object.day,
+            datetime_object.hour,
+            datetime_object.minute,
+            datetime_object.second,
+            datetime_object.microsecond // 1000,  # Convert microsecond to millisecond
+        ]
+        videoTitle = f"{patient_name}_{camera_id}_{current_datetime}.mp4"
+
+        sendAlert(
+            camera_id,
+            formatted_datetime,
+            videoTitle,
+        )
+
+        sendMovement(camera_id, formatted_datetime)
+
     if status == "!FALL DETECTED - ALERT SEND!" and y_nose < threshold_height:
         status = "RECOVERED FROM FALL"
         fall_detected = False
@@ -309,7 +315,7 @@ while cap.isOpened():
     # show status in top left corner
     cv2.putText(
         frame,
-        f"{data_json}",
+        f"{formatted_datetime}",
         (20, 100),
         cv2.FONT_HERSHEY_SIMPLEX,
         1,
