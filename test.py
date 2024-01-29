@@ -87,6 +87,7 @@ def createVideo(array):
     out = cv2.VideoWriter(f"{videoTitle}", fourcc, 20.0, (1920, 1080))
     for array_frame in array:
         out.write(array_frame)
+    
 
 
 # send video
@@ -96,6 +97,11 @@ def sendVideo(videoTitle):
     with open(f"{videoTitle}", "rb") as data:
         content_settings = ContentSettings(content_type="video/mp4")
         blob_client.upload_blob(data, content_settings=content_settings)
+    sendAlert(
+            camera_id,
+            formatted_datetime,
+            videoTitle,
+        )
 
 
 # send alert
@@ -287,13 +293,7 @@ while cap.isOpened():
         ]
         videoTitle = f"{patient_name}_{camera_id}_{current_datetime}.mp4"
 
-        sendAlert(
-            camera_id,
-            formatted_datetime,
-            videoTitle,
-        )
-
-        sendMovement(camera_id, formatted_datetime)
+        
 
     if status == "!FALL DETECTED - ALERT SEND!" and y_nose < threshold_height:
         status = "RECOVERED FROM FALL"
@@ -324,13 +324,8 @@ while cap.isOpened():
         ]
         videoTitle = f"{patient_name}_{camera_id}_{current_datetime}.mp4"
 
-        sendAlert(
-            camera_id,
-            formatted_datetime,
-            videoTitle,
-        )
+        
 
-        sendMovement(camera_id, formatted_datetime)
 
     if status == "!OCCLUDED FALL DETECTED!" and y_nose != previous_y_nose:
         status = "RECOVERED FROM OCCLUDED FALL"
