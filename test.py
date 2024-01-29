@@ -59,11 +59,10 @@ frame_counter = 0
 alert_json = None
 movement_json = None
 tracked_time = None
-
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
-
+send_movement_boolean = False
 cap = cv2.VideoCapture(0)
 fourcc = cv2.VideoWriter_fourcc(*"H264")
 out = None
@@ -143,8 +142,10 @@ def sendMovement(cameraId, trackedTime):
 
     # Make the POST request
     requests.post(url, data=json_data, headers=headers)
-
-schedule.every().day.at("23:59").do(sendMovement,camera_id,tracked_time)
+def setSendMovementBool():
+    global send_movement_boolean 
+    send_movement_boolean = True
+schedule.every().day.at("23:59").do(setSendMovementBool)
 
 
 # === PROGRAM === #
@@ -398,6 +399,9 @@ while cap.isOpened():
     # output frame to show video
     cv2.imshow("Output", frame)
 
+    if(send_movement_boolean == True):
+        sendMovement(camera_id,tracked_time)
+        send_movement_boolean = False
     # update previous variables
     previous_y_nose = y_nose
     previous_x_hip = x_average_position
