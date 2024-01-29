@@ -12,7 +12,7 @@ from azure.storage.blob import (
 from dotenv import load_dotenv
 import os
 import requests
-
+import schedule
 # === USER SETTINGS ===
 patient_name = "bob"
 camera_id = 1
@@ -58,6 +58,7 @@ movement_counter = 0
 frame_counter = 0
 alert_json = None
 movement_json = None
+tracked_time = None
 
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
@@ -119,15 +120,15 @@ def sendAlert(cameraId, triggerTime, videoData):
 
 
 # send movement
-def sendMovement(cameraId, triggerTime):
+def sendMovement(cameraId, trackedTime):
     url = "https://elderguardiansbackend.azurewebsites.net/api/movements"
 
     # JSON data to be sent in the POST request
     data = {
         "cameraId": cameraId,
-        "trackedTime": triggerTime,
+        "trackedTime": trackedTime
     }
-
+    print(data)
     # Convert the data dictionary to a JSON string
     json_data = json.dumps(data)
 
@@ -137,9 +138,13 @@ def sendMovement(cameraId, triggerTime):
     # Make the POST request
     requests.post(url, data=json_data, headers=headers)
 
+schedule.every().day.at("23:59").do(sendMovement,camera_id,tracked_time)
+
 
 # === PROGRAM === #
 while cap.isOpened():
+    schedule.run_pending()
+    
     _, frame = cap.read()
     frame = cv2.resize(frame, (1920, 1080))
 
@@ -376,7 +381,7 @@ while cap.isOpened():
     # movement time in sec
     cv2.putText(
         frame,
-        f"Time moving: {math.floor(movement_counter / 30)} s",
+        f"Time moving: {tracked_time} s",
         (20, 400),
         cv2.FONT_HERSHEY_SIMPLEX,
         2,
@@ -404,7 +409,7 @@ while cap.isOpened():
     previous_timestamp = current_timestamp
     previous_frame_counter = frame_counter
     frame_counter += 1
-
+    tracked_time = math.floor(movement_counter / 30)
     # cancel program on q pressed
     if cv2.waitKey(1) == ord("q"):
         break
