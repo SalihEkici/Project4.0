@@ -403,7 +403,7 @@ while cap.isOpened():
     cv2.imshow("Output", frame)
 
     if(send_movement_boolean == True):
-        sendMovement(camera_id,tracked_time)
+        threading.Thread(target=(sendMovement), args =(camera_id,tracked_time)).start()
         send_movement_boolean = False
     # update previous variables
     previous_y_nose = y_nose
