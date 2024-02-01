@@ -4,3 +4,6 @@ numpy
 azure-storage-blob
 python-dotenv
 requests
+azure-identity
+azure-mgmt-storage
+schedule
