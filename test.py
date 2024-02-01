@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 import os
 import requests
 import schedule
+import threading
 # === USER SETTINGS ===
 patient_name = "bob"
 camera_id = 1
@@ -64,7 +65,7 @@ mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 send_movement_boolean = False
 cap = cv2.VideoCapture(0)
-fourcc = cv2.VideoWriter_fourcc(*"H264")
+fourcc = cv2.VideoWriter_fourcc(*"mp4a")
 out = None
 
 fps_start_time = time.time()
@@ -83,7 +84,7 @@ connection_string = os.getenv("CONNECTION_STRING")
 
 # create video
 def createVideo(array):
-    out = cv2.VideoWriter(f"{videoTitle}", fourcc, 20.0, (1920, 1080))
+    out = cv2.VideoWriter(f"{videoTitle}", -1, 20.0, (1920, 1080))
     for array_frame in array:
         out.write(array_frame)
     
@@ -101,6 +102,8 @@ def sendVideo(videoTitle):
             formatted_datetime,
             videoTitle,
         )
+    print("video sent")
+    
 
 
 # send alert
@@ -159,7 +162,7 @@ while cap.isOpened():
         buffer_amount = 200
         if len(buffer_array) >= buffer_amount:
             createVideo(buffer_array)
-            sendVideo(videoTitle)
+            threading.Thread(target=sendVideo, args=(videoTitle,)).start()
             buffer_array = []
             buffer_amount = 100
             fall_detected = False
