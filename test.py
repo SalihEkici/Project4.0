@@ -114,7 +114,7 @@ def sendAlert(cameraId, triggerTime, videoData):
     data = {
         "cameraId": cameraId,
         "triggerTime": triggerTime,
-        "videoData": f"https://sateamelderguardians.blob.core.windows.net/blobelderguardians/{videoData}",
+        "videoData": f"https://stelderguardians.blob.core.windows.net/blobelderguardians/{videoData}",
     }
 
     # Convert the data dictionary to a JSON string
