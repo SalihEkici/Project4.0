@@ -15,7 +15,7 @@ import requests
 import schedule
 import threading
 # === USER SETTINGS ===
-patient_name = "bob"
+patient_name = "sarah"
 camera_id = 1
 user_id = 1
 
@@ -65,7 +65,6 @@ mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 send_movement_boolean = False
 cap = cv2.VideoCapture(0)
-fourcc = cv2.VideoWriter_fourcc(*"mp4a")
 out = None
 
 fps_start_time = time.time()
@@ -148,7 +147,7 @@ def sendMovement(cameraId, trackedTime):
 def setSendMovementBool():
     global send_movement_boolean 
     send_movement_boolean = True
-schedule.every().day.at("23:59").do(setSendMovementBool)
+schedule.every().day.at("14:23").do(setSendMovementBool)
 
 
 # === PROGRAM === #
