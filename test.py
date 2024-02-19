@@ -83,10 +83,9 @@ connection_string = os.getenv("CONNECTION_STRING")
 
 # create video
 def createVideo(array):
-    out = cv2.VideoWriter(f"{videoTitle}", -1, 20.0, (1920, 1080))
+    out = cv2.VideoWriter(f"{videoTitle}", cv2.VideoWriter_fourcc(*'H264'), 20.0, (1920, 1080))
     for array_frame in array:
         out.write(array_frame)
-    
 
 
 # send video
@@ -96,12 +95,12 @@ def sendVideo(videoTitle):
     with open(f"{videoTitle}", "rb") as data:
         content_settings = ContentSettings(content_type="video/mp4")
         blob_client.upload_blob(data, content_settings=content_settings)
+    print("video sent")
     sendAlert(
             camera_id,
             formatted_datetime,
             videoTitle,
         )
-    print("video sent")
     
 
 
@@ -147,7 +146,7 @@ def sendMovement(cameraId, trackedTime):
 def setSendMovementBool():
     global send_movement_boolean 
     send_movement_boolean = True
-schedule.every().day.at("14:23").do(setSendMovementBool)
+schedule.every().day.at("23:59").do(setSendMovementBool)
 
 
 # === PROGRAM === #
