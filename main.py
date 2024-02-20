@@ -350,16 +350,16 @@ while cap.isOpened():
         fps_start_time = time.time()
         fps_frame_count = 0
 
-    # show status in top left corner
-    cv2.putText(
-        frame,
-        f"{formatted_datetime}",
-        (20, 100),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (255, 255, 255),
-        5,
-    )
+    # # show status in top left corner
+    # cv2.putText(
+    #     frame,
+    #     f"{formatted_datetime}",
+    #     (20, 100),
+    #     cv2.FONT_HERSHEY_SIMPLEX,
+    #     1,
+    #     (255, 255, 255),
+    #     5,
+    # )
 
     # show length of buffer array
     cv2.putText(
@@ -372,38 +372,38 @@ while cap.isOpened():
         5,
     )
 
-    # show fps
-    cv2.putText(
-        frame,
-        f"FPS: {math.floor(fps)}",
-        (20, 300),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        2,
-        (0, 255, 0),
-        5,
-    )
+    # # show fps
+    # cv2.putText(
+    #     frame,
+    #     f"FPS: {math.floor(fps)}",
+    #     (20, 300),
+    #     cv2.FONT_HERSHEY_SIMPLEX,
+    #     2,
+    #     (0, 255, 0),
+    #     5,
+    # )
 
-    # movement time in sec
-    cv2.putText(
-        frame,
-        f"Time moving: {tracked_time} s",
-        (20, 400),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        2,
-        (0, 0, 255),
-        5,
-    )
+    # # movement time in sec
+    # cv2.putText(
+    #     frame,
+    #     f"Time moving: {tracked_time} s",
+    #     (20, 400),
+    #     cv2.FONT_HERSHEY_SIMPLEX,
+    #     2,
+    #     (0, 0, 255),
+    #     5,
+    # )
 
-    # draw threshold line
-    cv2.putText(
-        frame,
-        threshold_line,
-        (0, round(threshold_height)),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        2,
-        (0, 255, 0),
-        2,
-    )
+    # # draw threshold line
+    # cv2.putText(
+    #     frame,
+    #     threshold_line,
+    #     (0, round(threshold_height)),
+    #     cv2.FONT_HERSHEY_SIMPLEX,
+    #     2,
+    #     (0, 255, 0),
+    #     2,
+    # )
 
     # output frame to show video
     cv2.imshow("Output", frame)
