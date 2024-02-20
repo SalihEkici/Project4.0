@@ -19,12 +19,26 @@ pip install -r requirements.txt
 - Populate the necessary environment variables and rename the .env-example file to .env. We need these variables to run the [get_connection_string.py](/get_connection_string.py) script.
 
 ```.env
-
+ACCOUNT_KEY=
 AZURE_STORAGE_ACCOUNT=
-subscription_id =
-resource_group_name =
-
+AZURE_STORAGE_CONTAINER=
+subscription_id=
+resource_group_name=
+CONNECTION_STRING=
 ```
+
+`AZURE_STORAGE_ACCOUNT` is the storage account name
+`ACCOUNT_KEY` can be found in Storage Accounts > [accountname] > Access keys
+`AZURE_STORAGE_CONTAINER` can be found in the storage account under containers
+![Store account info](images/AZURE_STORAGE_ACCOUNT.jpg)
+
+
+`subscription_id` can be found under Subscriptions > Subscription ID
+![Subscription_ID](images/subscription_ID.jpg)
+
+
+`resource_group_name` can be found under Resource Groups > Name
+![Resource_group_name](images/resource_group_name.jpg)
 
 - Navigate to [get_connection_string.py](/get_connection_string.py) and run the script. Take the output of the script and populate the CONNECTION_STRING and the remaining variables in the .env file
 
