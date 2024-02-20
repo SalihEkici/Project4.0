@@ -8,6 +8,16 @@ This is a fall detection system implemented in Python using OpenCV, MediaPipe, A
 
 ### Prerequisites
 
+- Create a virtual environment and activate it
+
+```cmd
+
+    python -m venv <virtual_environment_name_here>
+
+    ./venv/Scripts/activate
+
+```
+
 - Install Required Libraries: Make sure you have the necessary Python libraries installed. You can install them using the following command
 
 ```cmd
