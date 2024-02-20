@@ -8,6 +8,14 @@ This is a fall detection system implemented in Python using OpenCV, MediaPipe, A
 
 ### Prerequisites
 
+- Install azure-cli and log in with azure account
+
+```powershell
+    choco install azure-cli
+
+    az login --tenant <tenant-id>
+```
+
 - Create a virtual environment and activate it
 
 ```cmd
@@ -38,14 +46,12 @@ CONNECTION_STRING=
 ```
 
 `AZURE_STORAGE_ACCOUNT` is the storage account name,
-`ACCOUNT_KEY` can be found in Storage Accounts > [accountname] > Access keys and 
+`ACCOUNT_KEY` can be found in Storage Accounts > [accountname] > Access keys and
 `AZURE_STORAGE_CONTAINER` can be found in the storage account under containers.
 ![Store account info](images/AZURE_STORAGE_ACCOUNT.jpg)
 
-
 `subscription_id` can be found under Subscriptions > Subscription ID.
 ![Subscription_ID](images/subscription_ID.jpg)
-
 
 `resource_group_name` can be found under Resource Groups > Name.
 ![Resource_group_name](images/resource_group_name.jpg)

@@ -70,6 +70,7 @@ out = None
 fps_start_time = time.time()
 fps_frame_count = 0
 fps = 1
+fourcc = cv2.VideoWriter_fourcc(*'X264')
 
 load_dotenv()
 
@@ -78,14 +79,17 @@ account_key = os.getenv("ACCOUNT_KEY")
 container_name = os.getenv("AZURE_STORAGE_CONTAINER")
 connection_string = os.getenv("CONNECTION_STRING")
 
+
+
 # === FUNCTIONS === #
 
 
 # create video
 def createVideo(array):
-    out = cv2.VideoWriter(f"{videoTitle}", cv2.VideoWriter_fourcc(*'H264'), 20.0, (1920, 1080))
+    out = cv2.VideoWriter(f"{videoTitle}", fourcc, 20.0, (1920, 1080))
     for array_frame in array:
         out.write(array_frame)
+    out.release()
 
 
 # send video
@@ -94,8 +98,11 @@ def sendVideo(videoTitle):
     blob_client = blob_service_client.get_blob_client(container_name, videoTitle)
     with open(f"{videoTitle}", "rb") as data:
         content_settings = ContentSettings(content_type="video/mp4")
-        blob_client.upload_blob(data, content_settings=content_settings)
-    print("video sent")
+        try:
+            blob_client.upload_blob(data, content_settings=content_settings,timeout = 3600)
+            print("Video upload successful")
+        except Exception as e:
+            print(f"Error uploading video: {e}")
     sendAlert(
             camera_id,
             formatted_datetime,
@@ -161,6 +168,7 @@ while cap.isOpened():
         if len(buffer_array) >= buffer_amount:
             createVideo(buffer_array)
             threading.Thread(target=sendVideo, args=(videoTitle,)).start()
+            
             buffer_array = []
             buffer_amount = 100
             fall_detected = False
@@ -342,16 +350,16 @@ while cap.isOpened():
         fps_start_time = time.time()
         fps_frame_count = 0
 
-    # show status in top left corner
-    cv2.putText(
-        frame,
-        f"{formatted_datetime}",
-        (20, 100),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (255, 255, 255),
-        5,
-    )
+    # # show status in top left corner
+    # cv2.putText(
+    #     frame,
+    #     f"{formatted_datetime}",
+    #     (20, 100),
+    #     cv2.FONT_HERSHEY_SIMPLEX,
+    #     1,
+    #     (255, 255, 255),
+    #     5,
+    # )
 
     # show length of buffer array
     cv2.putText(
@@ -364,44 +372,45 @@ while cap.isOpened():
         5,
     )
 
-    # show fps
-    cv2.putText(
-        frame,
-        f"FPS: {math.floor(fps)}",
-        (20, 300),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        2,
-        (0, 255, 0),
-        5,
-    )
+    # # show fps
+    # cv2.putText(
+    #     frame,
+    #     f"FPS: {math.floor(fps)}",
+    #     (20, 300),
+    #     cv2.FONT_HERSHEY_SIMPLEX,
+    #     2,
+    #     (0, 255, 0),
+    #     5,
+    # )
 
-    # movement time in sec
-    cv2.putText(
-        frame,
-        f"Time moving: {tracked_time} s",
-        (20, 400),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        2,
-        (0, 0, 255),
-        5,
-    )
+    # # movement time in sec
+    # cv2.putText(
+    #     frame,
+    #     f"Time moving: {tracked_time} s",
+    #     (20, 400),
+    #     cv2.FONT_HERSHEY_SIMPLEX,
+    #     2,
+    #     (0, 0, 255),
+    #     5,
+    # )
 
-    # draw threshold line
-    cv2.putText(
-        frame,
-        threshold_line,
-        (0, round(threshold_height)),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        2,
-        (0, 255, 0),
-        2,
-    )
+    # # draw threshold line
+    # cv2.putText(
+    #     frame,
+    #     threshold_line,
+    #     (0, round(threshold_height)),
+    #     cv2.FONT_HERSHEY_SIMPLEX,
+    #     2,
+    #     (0, 255, 0),
+    #     2,
+    # )
 
     # output frame to show video
     cv2.imshow("Output", frame)
 
     if(send_movement_boolean == True):
         threading.Thread(target=(sendMovement), args =(camera_id,tracked_time)).start()
+        
         send_movement_boolean = False
     # update previous variables
     previous_y_nose = y_nose
